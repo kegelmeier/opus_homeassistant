@@ -153,14 +153,14 @@ class OpusGreenNetLight(LightEntity):
             # Convert 0-255 to 0-100
             brightness_pct = int(brightness * 100 / 255)
             await self._coordinator.async_turn_on(
-                self._device_key, self._channel_id, brightness_pct
+                self._device.device_id, self._channel_id, brightness_pct
             )
         else:
-            await self._coordinator.async_turn_on(self._device_key, self._channel_id)
+            await self._coordinator.async_turn_on(self._device.device_id, self._channel_id)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
-        await self._coordinator.async_turn_off(self._device_key, self._channel_id)
+        await self._coordinator.async_turn_off(self._device.device_id, self._channel_id)
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks when entity is added."""

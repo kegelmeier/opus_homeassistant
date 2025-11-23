@@ -123,11 +123,11 @@ class OpusGreenNetSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
-        await self._coordinator.async_turn_on(self._device_key, self._channel_id)
+        await self._coordinator.async_turn_on(self._device.device_id, self._channel_id)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
-        await self._coordinator.async_turn_off(self._device_key, self._channel_id)
+        await self._coordinator.async_turn_off(self._device.device_id, self._channel_id)
 
     async def async_added_to_hass(self) -> None:
         """Register callbacks when entity is added."""

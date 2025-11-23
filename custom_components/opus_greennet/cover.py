@@ -171,25 +171,25 @@ class OpusGreenNetCover(CoverEntity):
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
         await self._coordinator.async_set_cover_position(
-            self._device_key, 100, self._channel_id
+            self._device.device_id, 100, self._channel_id
         )
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
         await self._coordinator.async_set_cover_position(
-            self._device_key, 0, self._channel_id
+            self._device.device_id, 0, self._channel_id
         )
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         """Stop the cover."""
-        await self._coordinator.async_stop_cover(self._device_key, self._channel_id)
+        await self._coordinator.async_stop_cover(self._device.device_id, self._channel_id)
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         """Move the cover to a specific position."""
         position = kwargs.get(ATTR_POSITION)
         if position is not None:
             await self._coordinator.async_set_cover_position(
-                self._device_key, position, self._channel_id
+                self._device.device_id, position, self._channel_id
             )
 
     async def async_set_cover_tilt_position(self, **kwargs: Any) -> None:
@@ -197,7 +197,7 @@ class OpusGreenNetCover(CoverEntity):
         tilt = kwargs.get(ATTR_TILT_POSITION)
         if tilt is not None:
             await self._coordinator.async_set_cover_tilt(
-                self._device_key, tilt, self._channel_id
+                self._device.device_id, tilt, self._channel_id
             )
 
     async def async_added_to_hass(self) -> None:
