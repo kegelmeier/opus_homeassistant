@@ -1,6 +1,6 @@
 # Opus GreenNet Bridge - Home Assistant Integration
 
-![OPUS Logo](custom_components/opus_greennet/brands/logo.png)
+![OPUS Logo](custom_components/opus_greennet/logo.png)
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/kegelmeier/opus_homeassistant.svg)](https://github.com/kegelmeier/opus_homeassistant/releases)
