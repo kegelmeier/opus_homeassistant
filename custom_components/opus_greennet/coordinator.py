@@ -35,9 +35,9 @@ DEVICE_TOPIC_PATTERN = re.compile(
 )
 
 # Regex to parse telegram topics
-# EnOcean/{EAG}/stream/telegram/{DeviceID}/{direction}/{property}
+# EnOcean/{EAG}/stream/telegram/{DeviceID}/{property}
 TELEGRAM_TOPIC_PATTERN = re.compile(
-    r"EnOcean/([^/]+)/stream/telegram/([^/]+)/(from|to)/(.+)"
+    r"EnOcean/([^/]+)/stream/telegram/([^/]+)/(.+)"
 )
 
 
@@ -226,9 +226,12 @@ class OpusGreenNetCoordinator:
                 dbm=data.get("dbm", 0),
             )
 
-            # Preserve existing channel state
+            # Preserve existing channel state or apply initial state from discovery
             if device_key in self.devices:
                 device.channels = self.devices[device_key].channels
+            else:
+                # Apply initial state from discovery data (states/switch, states/dimValue, etc.)
+                self._apply_initial_state(device, data)
 
             self.devices[device_key] = device
 
@@ -251,22 +254,42 @@ class OpusGreenNetCoordinator:
         except Exception as err:
             _LOGGER.exception("Error creating device from data: %s", err)
 
+    def _apply_initial_state(self, device: EnOceanDevice, data: dict) -> None:
+        """Apply initial state from device discovery data."""
+        states = data.get("states", {})
+        if not states:
+            return
+
+        # Build a telegram-like structure from states data
+        functions = []
+
+        # Handle states that might be nested (states/switch, states/dimValue, etc.)
+        if isinstance(states, dict):
+            for key, value in states.items():
+                if key in ("switch", "dimValue", "position", "angle", "localControl"):
+                    functions.append({"key": key, "value": value})
+
+        if functions:
+            telegram = {"functions": functions}
+            device.update_from_telegram(telegram)
+            _LOGGER.debug(
+                "Applied initial state to device %s: %s",
+                device.friendly_id,
+                functions,
+            )
+
     @callback
     def _handle_telegram_property_message(self, msg: ReceiveMessage) -> None:
         """Handle incoming telegram property messages from flattened MQTT structure."""
         try:
-            # Parse topic: EnOcean/{EAG}/stream/telegram/{DeviceID}/{direction}/{property_path}
+            # Parse topic: EnOcean/{EAG}/stream/telegram/{DeviceID}/{property_path}
             match = TELEGRAM_TOPIC_PATTERN.match(msg.topic)
             if not match:
                 return
 
-            eag_id, device_id, direction, property_path = match.groups()
+            eag_id, device_id, property_path = match.groups()
 
             if eag_id != self.eag_id:
-                return
-
-            # Only process "from" direction (device -> gateway)
-            if direction != "from":
                 return
 
             # Get or create telegram data dict for this device

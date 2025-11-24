@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.9] - 2024-11-24
+
+### Added
+- **Initial state on startup**: Devices now load their current state during discovery from `stream/devices` data. Previously, entities would show unknown state until a physical change occurred.
+
+## [0.0.8] - 2024-11-24
+
+### Fixed
+- **State updates now work correctly**: Fixed telegram topic regex pattern to match actual bridge structure (`EnOcean/{EAG}/stream/telegram/{DeviceID}/{property}`) instead of expecting a `from/to` direction segment.
+
 ## [0.0.7] - 2024-11-24
 
 ### Fixed
