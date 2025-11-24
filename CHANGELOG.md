@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.5] - 2024-11-24
+
+### Fixed
+- **State updates now work with flattened MQTT structure**: Rewrote telegram handler to parse flattened MQTT topics (like device discovery) instead of expecting JSON payloads. State changes from physical switches now properly update entity states in Home Assistant.
+- **Commands now use flattened MQTT structure**: Rewrote command sending to publish individual MQTT messages for each property instead of JSON payloads. Commands are now sent as separate topics like `put/devices/{id}/state/functions/0/key` and `put/devices/{id}/state/functions/0/value`.
+
 ## [0.0.4] - 2024-11-24
 
 ### Fixed

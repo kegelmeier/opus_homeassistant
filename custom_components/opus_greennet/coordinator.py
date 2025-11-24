@@ -1,7 +1,6 @@
 """Data coordinator for Opus GreenNet Bridge integration."""
 from __future__ import annotations
 
-import json
 import logging
 import re
 from collections.abc import Callable
@@ -15,12 +14,10 @@ from homeassistant.helpers.event import async_call_later
 
 from .const import (
     DOMAIN,
-    EEP_MAPPINGS,
     TOPIC_BASE,
-    TOPIC_GET_DEVICES,
     TOPIC_PUT_STATE,
     TOPIC_SUB_DEVICES_ALL,
-    TOPIC_SUB_TELEGRAM_FROM,
+    TOPIC_SUB_TELEGRAM_FROM_ALL,
 )
 from .enocean_device import EnOceanDevice
 
@@ -36,6 +33,12 @@ DEVICE_TOPIC_PATTERN = re.compile(
     r"EnOcean/([^/]+)/stream/devices/([^/]+)/(.+)"
 )
 
+# Regex to parse telegram topics
+# EnOcean/{EAG}/stream/telegram/{DeviceID}/{direction}/{property}
+TELEGRAM_TOPIC_PATTERN = re.compile(
+    r"EnOcean/([^/]+)/stream/telegram/([^/]+)/(from|to)/(.+)"
+)
+
 
 class OpusGreenNetCoordinator:
     """Coordinator for managing MQTT communication with Opus GreenNet Bridge."""
@@ -46,22 +49,24 @@ class OpusGreenNetCoordinator:
         self.eag_id = eag_id
         self.devices: dict[str, EnOceanDevice] = {}
         self._device_data: dict[str, dict[str, Any]] = {}  # Raw device properties
+        self._telegram_data: dict[str, dict[str, Any]] = {}  # Raw telegram properties
         self._subscriptions: list[Callable[[], None]] = []
         self._discovery_complete = False
         self._pending_devices: set[str] = set()
+        self._pending_telegrams: dict[str, Callable | None] = {}  # Timers per device
         self._discovery_timer: Callable | None = None
 
     async def async_setup(self) -> bool:
         """Set up the coordinator and start MQTT subscriptions."""
         _LOGGER.debug("Setting up Opus GreenNet coordinator for EAG %s", self.eag_id)
 
-        # Subscribe to telegram stream (device state updates)
-        topic_telegram = TOPIC_SUB_TELEGRAM_FROM.format(
+        # Subscribe to telegram stream with # wildcard (flattened structure)
+        topic_telegram = TOPIC_SUB_TELEGRAM_FROM_ALL.format(
             base=TOPIC_BASE, eag_id=self.eag_id
         )
         self._subscriptions.append(
             await mqtt.async_subscribe(
-                self.hass, topic_telegram, self._handle_telegram_message, qos=1
+                self.hass, topic_telegram, self._handle_telegram_property_message, qos=1
             )
         )
         _LOGGER.info("Subscribed to telegram topic: %s", topic_telegram)
@@ -246,86 +251,146 @@ class OpusGreenNetCoordinator:
             _LOGGER.exception("Error creating device from data: %s", err)
 
     @callback
-    def _handle_telegram_message(self, msg: ReceiveMessage) -> None:
-        """Handle incoming telegram messages (device state updates)."""
+    def _handle_telegram_property_message(self, msg: ReceiveMessage) -> None:
+        """Handle incoming telegram property messages from flattened MQTT structure."""
         try:
-            payload = json.loads(msg.payload)
-            telegram = payload.get("telegram", payload)
-
-            device_id = telegram.get("deviceId")
-            friendly_id = telegram.get("friendlyId")
-
-            if not device_id:
-                _LOGGER.warning("Received telegram without deviceId: %s", msg.topic)
+            # Parse topic: EnOcean/{EAG}/stream/telegram/{DeviceID}/{direction}/{property_path}
+            match = TELEGRAM_TOPIC_PATTERN.match(msg.topic)
+            if not match:
                 return
 
-            _LOGGER.debug(
-                "Received telegram from device %s (%s): %s",
-                device_id,
-                friendly_id,
-                telegram.get("functions"),
+            eag_id, device_id, direction, property_path = match.groups()
+
+            if eag_id != self.eag_id:
+                return
+
+            # Only process "from" direction (device -> gateway)
+            if direction != "from":
+                return
+
+            # Get or create telegram data dict for this device
+            if device_id not in self._telegram_data:
+                self._telegram_data[device_id] = {"deviceId": device_id}
+
+            # Parse the property path and value
+            payload = msg.payload.decode() if isinstance(msg.payload, bytes) else str(msg.payload)
+
+            # Handle nested properties like functions/0/key or telegramInfo/dbm
+            self._set_nested_property(self._telegram_data[device_id], property_path, payload)
+
+            # Reset telegram timer for this device - finalize after short delay
+            if device_id in self._pending_telegrams and self._pending_telegrams[device_id]:
+                self._pending_telegrams[device_id]()
+
+            self._pending_telegrams[device_id] = async_call_later(
+                self.hass, 0.5, lambda *args, did=device_id: self._finalize_telegram(did)
             )
 
-            # Get or create device
-            device_key = friendly_id or device_id
-            if device_key not in self.devices:
-                # Create a basic device entry if we haven't discovered it yet
-                self.devices[device_key] = EnOceanDevice(
-                    device_id=device_id,
-                    friendly_id=friendly_id or device_id,
-                    physical_device=telegram.get("physicalDevice", ""),
-                )
-                _LOGGER.info(
-                    "Auto-discovered device from telegram: %s (%s)",
-                    friendly_id,
-                    device_id,
-                )
-                async_dispatcher_send(
-                    self.hass,
-                    f"{SIGNAL_DEVICE_DISCOVERED}_{self.eag_id}",
-                    self.devices[device_key],
-                )
+        except Exception as err:
+            _LOGGER.exception("Error handling telegram property message: %s", err)
 
-            # Update device state
-            device = self.devices[device_key]
-            device.update_from_telegram(telegram)
+    @callback
+    def _finalize_telegram(self, device_id: str) -> None:
+        """Finalize telegram processing after receiving all properties."""
+        if device_id not in self._telegram_data:
+            return
 
-            # Notify listeners of state update
+        telegram_data = self._telegram_data.pop(device_id)
+        self._pending_telegrams.pop(device_id, None)
+
+        friendly_id = telegram_data.get("friendlyId", device_id)
+
+        _LOGGER.debug(
+            "Finalized telegram from device %s (%s): %s",
+            device_id,
+            friendly_id,
+            telegram_data,
+        )
+
+        # Build functions list from the telegram data
+        functions = []
+        functions_data = telegram_data.get("functions", {})
+        if isinstance(functions_data, dict):
+            for idx in sorted(functions_data.keys(), key=lambda x: int(x) if str(x).isdigit() else x):
+                func_entry = functions_data[idx]
+                if isinstance(func_entry, dict):
+                    functions.append(func_entry)
+
+        # Create telegram dict in the format expected by update_from_telegram
+        telegram = {
+            "deviceId": device_id,
+            "friendlyId": friendly_id,
+            "functions": functions,
+            "timestamp": telegram_data.get("timestamp"),
+            "telegramInfo": telegram_data.get("telegramInfo", {}),
+        }
+
+        # Get or create device
+        device_key = friendly_id or device_id
+        if device_key not in self.devices:
+            # Create a basic device entry if we haven't discovered it yet
+            self.devices[device_key] = EnOceanDevice(
+                device_id=device_id,
+                friendly_id=friendly_id,
+            )
+            _LOGGER.info(
+                "Auto-discovered device from telegram: %s (%s)",
+                friendly_id,
+                device_id,
+            )
             async_dispatcher_send(
                 self.hass,
-                f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}",
-                device,
+                f"{SIGNAL_DEVICE_DISCOVERED}_{self.eag_id}",
+                self.devices[device_key],
             )
 
-        except json.JSONDecodeError as err:
-            _LOGGER.error("Failed to parse telegram message: %s", err)
-        except Exception as err:
-            _LOGGER.exception("Error handling telegram message: %s", err)
+        # Update device state
+        device = self.devices[device_key]
+        device.update_from_telegram(telegram)
+
+        _LOGGER.debug(
+            "Updated device %s state: is_on=%s",
+            device_key,
+            device.channels.get(0).is_on if device.channels.get(0) else "no channel",
+        )
+
+        # Notify listeners of state update
+        async_dispatcher_send(
+            self.hass,
+            f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}",
+            device,
+        )
 
     async def async_send_command(
         self,
         device_id: str,
         functions: list[dict[str, Any]],
     ) -> None:
-        """Send a command to a device."""
-        topic = TOPIC_PUT_STATE.format(
+        """Send a command to a device using flattened MQTT structure."""
+        base_topic = TOPIC_PUT_STATE.format(
             base=TOPIC_BASE, eag_id=self.eag_id, device_id=device_id
         )
 
-        # Build telegram object
-        telegram = {
-            "telegram": {
-                "deviceId": device_id,
-                "friendlyId": device_id,
-                "direction": "to",
-                "functions": functions,
-            }
-        }
+        _LOGGER.debug(
+            "Sending command to device %s with functions: %s",
+            device_id,
+            functions,
+        )
 
-        payload = json.dumps(telegram)
-        _LOGGER.debug("Sending command to %s: %s", topic, payload)
+        # Publish each function property as a separate MQTT message
+        for idx, func in enumerate(functions):
+            key = func.get("key")
+            value = func.get("value")
 
-        await mqtt.async_publish(self.hass, topic, payload, qos=1)
+            if key:
+                topic_key = f"{base_topic}/functions/{idx}/key"
+                await mqtt.async_publish(self.hass, topic_key, key, qos=1)
+                _LOGGER.debug("Published %s = %s", topic_key, key)
+
+            if value is not None:
+                topic_value = f"{base_topic}/functions/{idx}/value"
+                await mqtt.async_publish(self.hass, topic_value, str(value), qos=1)
+                _LOGGER.debug("Published %s = %s", topic_value, value)
 
     async def async_turn_on(
         self,
