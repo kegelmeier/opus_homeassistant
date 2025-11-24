@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.0.7] - 2024-11-24
+
+### Fixed
+- **Simplified command functions**: Removed unnecessary `channel` function from commands. Commands now only send the required function (e.g., `{"key": "switch", "value": "on"}`).
+
 ## [0.0.6] - 2024-11-24
 
 ### Fixed

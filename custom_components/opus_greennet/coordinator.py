@@ -391,21 +391,16 @@ class OpusGreenNetCoordinator:
         brightness: int | None = None,
     ) -> None:
         """Turn on a switch or light."""
-        functions = [{"key": "channel", "value": str(channel)}]
-
         if brightness is not None:
-            functions.append({"key": "dimValue", "value": str(brightness)})
+            functions = [{"key": "dimValue", "value": str(brightness)}]
         else:
-            functions.append({"key": "switch", "value": "on"})
+            functions = [{"key": "switch", "value": "on"}]
 
         await self.async_send_command(device_id, functions)
 
     async def async_turn_off(self, device_id: str, channel: int = 0) -> None:
         """Turn off a switch or light."""
-        functions = [
-            {"key": "channel", "value": str(channel)},
-            {"key": "switch", "value": "off"},
-        ]
+        functions = [{"key": "switch", "value": "off"}]
         await self.async_send_command(device_id, functions)
 
     async def async_set_cover_position(
@@ -415,10 +410,7 @@ class OpusGreenNetCoordinator:
         channel: int = 0,
     ) -> None:
         """Set cover position (0 = closed, 100 = open)."""
-        functions = [
-            {"key": "channel", "value": str(channel)},
-            {"key": "position", "value": str(position)},
-        ]
+        functions = [{"key": "position", "value": str(position)}]
         await self.async_send_command(device_id, functions)
 
     async def async_set_cover_tilt(
@@ -428,18 +420,12 @@ class OpusGreenNetCoordinator:
         channel: int = 0,
     ) -> None:
         """Set cover tilt angle."""
-        functions = [
-            {"key": "channel", "value": str(channel)},
-            {"key": "angle", "value": str(tilt)},
-        ]
+        functions = [{"key": "angle", "value": str(tilt)}]
         await self.async_send_command(device_id, functions)
 
     async def async_stop_cover(self, device_id: str, channel: int = 0) -> None:
         """Stop cover movement."""
-        functions = [
-            {"key": "channel", "value": str(channel)},
-            {"key": "position", "value": "stop"},
-        ]
+        functions = [{"key": "position", "value": "stop"}]
         await self.async_send_command(device_id, functions)
 
     def get_device(self, device_id: str) -> EnOceanDevice | None:
