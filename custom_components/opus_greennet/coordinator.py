@@ -256,9 +256,12 @@ class OpusGreenNetCoordinator:
 
     def _apply_initial_state(self, device: EnOceanDevice, data: dict) -> None:
         """Apply initial state from device discovery data."""
+        _LOGGER.info("INITIAL STATE: device=%s data_keys=%s", device.friendly_id, list(data.keys()))
         states = data.get("states", {})
         if not states:
+            _LOGGER.info("INITIAL STATE: No 'states' in data for %s", device.friendly_id)
             return
+        _LOGGER.info("INITIAL STATE: Found states=%s", states)
 
         # Build a telegram-like structure from states data
         functions = []
@@ -282,14 +285,20 @@ class OpusGreenNetCoordinator:
     def _handle_telegram_property_message(self, msg: ReceiveMessage) -> None:
         """Handle incoming telegram property messages from flattened MQTT structure."""
         try:
+            # Log every telegram message at INFO level for debugging
+            _LOGGER.info("TELEGRAM MSG: %s = %s", msg.topic, msg.payload)
+
             # Parse topic: EnOcean/{EAG}/stream/telegram/{DeviceID}/{property_path}
             match = TELEGRAM_TOPIC_PATTERN.match(msg.topic)
             if not match:
+                _LOGGER.warning("TELEGRAM: No regex match for topic: %s", msg.topic)
                 return
 
             eag_id, device_id, property_path = match.groups()
+            _LOGGER.info("TELEGRAM PARSED: eag=%s dev=%s path=%s", eag_id, device_id, property_path)
 
             if eag_id != self.eag_id:
+                _LOGGER.warning("TELEGRAM: EAG mismatch %s != %s", eag_id, self.eag_id)
                 return
 
             # Get or create telegram data dict for this device
@@ -306,8 +315,12 @@ class OpusGreenNetCoordinator:
             if device_id in self._pending_telegrams and self._pending_telegrams[device_id]:
                 self._pending_telegrams[device_id]()
 
+            @callback
+            def finalize_callback(_now, did=device_id):
+                self._finalize_telegram(did)
+
             self._pending_telegrams[device_id] = async_call_later(
-                self.hass, 0.5, lambda *args, did=device_id: self._finalize_telegram(did)
+                self.hass, 0.5, finalize_callback
             )
 
         except Exception as err:
@@ -316,7 +329,10 @@ class OpusGreenNetCoordinator:
     @callback
     def _finalize_telegram(self, device_id: str) -> None:
         """Finalize telegram processing after receiving all properties."""
+        _LOGGER.info("FINALIZE called for device_id=%s", device_id)
+
         if device_id not in self._telegram_data:
+            _LOGGER.warning("FINALIZE: No telegram data for %s", device_id)
             return
 
         telegram_data = self._telegram_data.pop(device_id)
@@ -324,12 +340,7 @@ class OpusGreenNetCoordinator:
 
         friendly_id = telegram_data.get("friendlyId", device_id)
 
-        _LOGGER.debug(
-            "Finalized telegram from device %s (%s): %s",
-            device_id,
-            friendly_id,
-            telegram_data,
-        )
+        _LOGGER.info("FINALIZE telegram_data: %s", telegram_data)
 
         # Build functions list from the telegram data
         functions = []
@@ -349,16 +360,22 @@ class OpusGreenNetCoordinator:
             "telegramInfo": telegram_data.get("telegramInfo", {}),
         }
 
+        _LOGGER.info("FINALIZE functions built: %s", functions)
+
         # Find device by device_id (devices are keyed by friendly_id)
         device = None
         device_key = None
+        _LOGGER.info("FINALIZE: Looking for device_id=%s in devices: %s",
+                     device_id, [(k, v.device_id) for k, v in self.devices.items()])
         for key, dev in self.devices.items():
             if dev.device_id == device_id:
                 device = dev
                 device_key = key
+                _LOGGER.info("FINALIZE: Found device key=%s", key)
                 break
 
         if device is None:
+            _LOGGER.info("FINALIZE: Device NOT found, creating new")
             # Create a basic device entry if we haven't discovered it yet
             device_key = device_id
             device = EnOceanDevice(
@@ -379,18 +396,19 @@ class OpusGreenNetCoordinator:
         # Update device state
         device.update_from_telegram(telegram)
 
-        _LOGGER.debug(
-            "Updated device %s state: is_on=%s",
+        channel_state = device.channels.get(0)
+        _LOGGER.info(
+            "FINALIZE: Updated device %s state: is_on=%s, brightness=%s, position=%s",
             device_key,
-            device.channels.get(0).is_on if device.channels.get(0) else "no channel",
+            channel_state.is_on if channel_state else "no channel",
+            channel_state.brightness if channel_state else None,
+            channel_state.position if channel_state else None,
         )
 
         # Notify listeners of state update
-        async_dispatcher_send(
-            self.hass,
-            f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}",
-            device,
-        )
+        signal = f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}"
+        _LOGGER.info("FINALIZE: Sending signal %s", signal)
+        async_dispatcher_send(self.hass, signal, device)
 
     async def async_send_command(
         self,
