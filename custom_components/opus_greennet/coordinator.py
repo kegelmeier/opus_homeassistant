@@ -349,27 +349,34 @@ class OpusGreenNetCoordinator:
             "telegramInfo": telegram_data.get("telegramInfo", {}),
         }
 
-        # Get or create device
-        device_key = friendly_id or device_id
-        if device_key not in self.devices:
+        # Find device by device_id (devices are keyed by friendly_id)
+        device = None
+        device_key = None
+        for key, dev in self.devices.items():
+            if dev.device_id == device_id:
+                device = dev
+                device_key = key
+                break
+
+        if device is None:
             # Create a basic device entry if we haven't discovered it yet
-            self.devices[device_key] = EnOceanDevice(
+            device_key = device_id
+            device = EnOceanDevice(
                 device_id=device_id,
-                friendly_id=friendly_id,
+                friendly_id=device_id,
             )
+            self.devices[device_key] = device
             _LOGGER.info(
-                "Auto-discovered device from telegram: %s (%s)",
-                friendly_id,
+                "Auto-discovered device from telegram: %s",
                 device_id,
             )
             async_dispatcher_send(
                 self.hass,
                 f"{SIGNAL_DEVICE_DISCOVERED}_{self.eag_id}",
-                self.devices[device_key],
+                device,
             )
 
         # Update device state
-        device = self.devices[device_key]
         device.update_from_telegram(telegram)
 
         _LOGGER.debug(
