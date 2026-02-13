@@ -31,5 +31,57 @@
         }
       }
     }
+  },
+  "entity": {
+    "light": {
+      "opus_light": {
+        "name": "Light"
+      }
+    },
+    "switch": {
+      "opus_switch": {
+        "name": "Switch"
+      }
+    },
+    "cover": {
+      "opus_cover": {
+        "name": "Cover"
+      }
+    },
+    "climate": {
+      "opus_climate": {
+        "name": "Climate"
+      }
+    },
+    "sensor": {
+      "opus_humidity": {
+        "name": "Humidity"
+      },
+      "opus_feed_temperature": {
+        "name": "Feed Temperature"
+      },
+      "opus_energy_consumption": {
+        "name": "Energy Consumption"
+      },
+      "opus_signal_strength": {
+        "name": "Signal Strength"
+      }
+    },
+    "binary_sensor": {
+      "opus_window": {
+        "name": "Window"
+      },
+      "opus_problem": {
+        "name": "Problem"
+      },
+      "opus_battery": {
+        "name": "Battery"
+      }
+    },
+    "event": {
+      "opus_event": {
+        "name": "Rocker Switch"
+      }
+    }
   }
 }

@@ -11,8 +11,13 @@ A custom Home Assistant integration for the Opus GreenNet Bridge, enabling contr
 ## Features
 
 - **Auto-discovery**: Automatically discovers EnOcean devices connected to your Opus GreenNet Bridge
-- **Real-time updates**: Receives state changes via MQTT push notifications
-- **Bidirectional control**: Send commands to actuators (lights, switches, covers)
+- **Real-time updates**: Receives state changes via MQTT push notifications (stream/device deltas)
+- **Bidirectional control**: Send commands to actuators (lights, switches, covers, thermostats)
+- **Climate control**: HeatArea thermostat support for Valve, CosiTherm, and Electro Heating areas
+- **Sensors**: Humidity, temperature, energy consumption, and signal strength monitoring
+- **Binary sensors**: Window open detection, actuator error states, battery monitoring
+- **Events**: Rocker switch button press/release events
+- **Device services**: ReCom API access for advanced device configuration and diagnostics
 - **UI Configuration**: Set up via Home Assistant's Integrations page
 
 ## Supported Device Types
@@ -22,6 +27,10 @@ A custom Home Assistant integration for the Opus GreenNet Bridge, enabling contr
 | **Light** | D2-01-02, D2-01-03, D2-01-06, D2-01-07, D2-01-0A, D2-01-0B, D2-01-0F, D2-01-10, D2-01-12, A5-38-08 | Dimmable lights |
 | **Switch** | D2-01-00, D2-01-01, D2-01-04, D2-01-05, D2-01-08, D2-01-09, D2-01-0C, D2-01-0D, D2-01-0E, D2-01-11 | On/Off switches and actuators |
 | **Cover** | D2-05-00, D2-05-01, D2-05-02 | Blinds, shades, and shutters |
+| **Climate** | D1-4B-05, D1-4B-06, D1-4B-07 | OPUS HeatArea thermostats (Valve, CosiTherm, Electro Heating) |
+| **Sensor** | _(from climate devices)_ | Humidity, feed temperature, energy consumption, signal strength |
+| **Binary Sensor** | _(from climate devices)_ | Window open, actuator errors, battery low |
+| **Event** | F6-02-01, F6-02-02, F6-02-03, F6-03-01, F6-03-02 | Rocker switch press/release events |
 
 ## Prerequisites
 
@@ -109,6 +118,18 @@ If you see messages when triggering EnOcean devices, the bridge is working.
 4. Enter your **EAG Identifier** (Bridge ID, e.g., `050B4DFA`)
 5. Click **Submit**
 
+## Services
+
+The integration exposes the following services for advanced device management, accessible via **Developer Tools** → **Services**:
+
+| Service | Parameters | Description |
+|---------|-----------|-------------|
+| `opus_greennet.get_device_configuration` | `device_id` | Retrieve the stored configuration for an EnOcean device via ReCom API |
+| `opus_greennet.set_device_configuration` | `device_id`, `configuration` | Write configuration to an EnOcean device via ReCom API |
+| `opus_greennet.get_device_parameters` | `device_id` | Retrieve DDF parameters for an EnOcean device via ReCom API |
+
+The `device_id` is the EURID of the target device (e.g., `01A02F6C`). An optional `config_entry_id` parameter is available if you have multiple gateways.
+
 ## MQTT Topic Structure
 
 The integration follows the EnOcean over IP MQTT specification:
@@ -169,15 +190,20 @@ logger:
 
 ```
 custom_components/opus_greennet/
-├── __init__.py           # Integration setup
-├── manifest.json         # Integration metadata
+├── __init__.py           # Integration setup and service registration
+├── manifest.json         # Integration metadata and version
 ├── config_flow.py        # UI configuration
-├── const.py              # Constants and EEP mappings
-├── coordinator.py        # MQTT communication handler
-├── enocean_device.py     # Device data model
+├── const.py              # Constants, EEP mappings, and MQTT topics
+├── coordinator.py        # MQTT communication, discovery, and commands
+├── enocean_device.py     # Device and channel data model
 ├── light.py              # Light entity platform
 ├── switch.py             # Switch entity platform
 ├── cover.py              # Cover entity platform
+├── climate.py            # Climate entity platform (HeatArea)
+├── sensor.py             # Sensor entity platform
+├── binary_sensor.py      # Binary sensor entity platform
+├── event.py              # Event entity platform (rocker switches)
+├── services.yaml         # HA service definitions
 ├── strings.json          # UI strings
 └── translations/
     └── en.json           # English translations

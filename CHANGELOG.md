@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.0] - 2025-02-13
+
+### Added
+- **Climate platform**: Full HeatArea support for OPUS Valve (D1-4B-05), CosiTherm (D1-4B-06), and Electro Heating (D1-4B-07) with temperature control, HVAC modes, and humidity
+- **Sensor platform**: Humidity, feed temperature, energy consumption, and signal strength sensors
+- **Binary sensor platform**: Window open, actuator errors (not responding, deactivated, missing temperature), battery low, and circuit-in-use sensors
+- **Event platform**: Rocker switch press/release events for F6-02-xx and F6-03-xx switches
+- **ReCom API services**: `get_device_configuration`, `set_device_configuration`, `get_device_parameters` exposed as HA service calls
+- **Gateway diagnostics**: System info and uptime queries
+- **Device profile queries**: Fetch device capability profiles via MQTT
+- **Active GET discovery**: Devices now discovered via `get/devices` on startup (no longer relies solely on `stream/devices` boot broadcast)
+- **`stream/device` subscription**: Live delta updates for real-time state changes
+- **services.yaml**: Service descriptions for the HA Developer Tools UI
+
+### Fixed
+- **Multi-channel commands**: Commands now correctly include `channel` key for multi-channel devices
+- **Initial state handling**: All known function keys (climate, energy, errors) are now applied on startup, not just switch/dimValue/position/angle
+
+### Changed
+- Expanded `KNOWN_STATE_KEYS` to cover all climate, error, and sensor function keys
+- `PLATFORMS` list now includes all 7 platforms: light, switch, cover, climate, sensor, binary_sensor, event
+
 ## [0.0.10] - 2024-11-29
 
 ### Fixed
