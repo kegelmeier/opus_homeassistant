@@ -292,20 +292,38 @@ class OpusGreenNetCoordinator:
                 )
             return
 
-        # Build functions from states in the delta
-        states = stream_data.get("states", {})
-        if states and isinstance(states, dict):
-            functions = []
-            for key, value in states.items():
-                if key in KNOWN_STATE_KEYS:
-                    functions.append({"key": key, "value": value})
+        # Build functions from the delta data.
+        # stream/device topics use "state/functions/N/key|value" (singular "state",
+        # functions array) while stream/devices boot data uses "states/<key>" (plural
+        # "states", flat dict). We must handle both formats.
+        functions = []
 
-            if functions:
-                telegram = {"functions": functions}
-                device.update_from_telegram(telegram)
+        # Format 1: state.functions array (from stream/device deltas)
+        state_obj = stream_data.get("state", {})
+        if isinstance(state_obj, dict):
+            functions_data = state_obj.get("functions", [])
+            if isinstance(functions_data, list):
+                functions = [f for f in functions_data if isinstance(f, dict)]
+            elif isinstance(functions_data, dict):
+                for idx in sorted(functions_data.keys(), key=lambda x: int(x) if str(x).isdigit() else x):
+                    func_entry = functions_data[idx]
+                    if isinstance(func_entry, dict):
+                        functions.append(func_entry)
 
-                signal = f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}"
-                async_dispatcher_send(self.hass, signal, device)
+        # Format 2: states flat dict (from stream/devices boot data, if routed here)
+        if not functions:
+            states = stream_data.get("states", {})
+            if states and isinstance(states, dict):
+                for key, value in states.items():
+                    if key in KNOWN_STATE_KEYS:
+                        functions.append({"key": key, "value": value})
+
+        if functions:
+            telegram = {"functions": functions}
+            device.update_from_telegram(telegram)
+
+            signal = f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}"
+            async_dispatcher_send(self.hass, signal, device)
 
     # ──────────────────────────────────────────────────────────────────────
     # GET answer handler (active discovery)

@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2] - 2025-02-13
+
+### Fixed
+- **HA commands now update entity state**: Fixed `stream/device` delta handler to correctly parse `state.functions` array format. Previously it only looked for the `states` flat dict format (used by boot data), so live deltas after commands were silently dropped — entities stayed stale until an external change arrived.
+
 ## [0.1.1] - 2025-02-13
 
 ### Fixed
