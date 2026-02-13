@@ -613,19 +613,38 @@ class OpusGreenNetCoordinator:
         telegram_data = self._telegram_data.pop(device_id)
         self._pending_telegrams.pop(device_id, None)
 
-        # Only process "from" telegrams (device responses), ignore "to" (commands)
-        direction = telegram_data.get("direction")
+        # Flattened MQTT topics nest data under "from" or "to" sub-keys:
+        #   stream/telegram/{DEVICE}/from/functions/0/key → {"from": {"functions": ...}}
+        #   stream/telegram/{DEVICE}/to/... → {"to": {...}}
+        # We only want "from" telegrams (device reports), not "to" (outbound commands).
+        from_data = telegram_data.get("from", {})
+        to_data = telegram_data.get("to", {})
+
+        if to_data and not from_data:
+            # Only "to" (command) data — skip
+            return
+
+        # Use the "from" sub-object as primary data source; fall back to top-level
+        # for backwards compatibility (e.g. if topic structure differs).
+        effective_data = from_data if from_data else telegram_data
+
+        # Also check top-level direction field (legacy fallback)
+        direction = effective_data.get("direction") or telegram_data.get("direction")
         if direction == "to":
             return
 
-        friendly_id = telegram_data.get("friendlyId", device_id)
+        friendly_id = (
+            effective_data.get("friendlyId")
+            or telegram_data.get("friendlyId")
+            or device_id
+        )
 
         # Build functions list from the telegram data
         functions = []
-        functions_data = telegram_data.get("functions", [])
+        functions_data = effective_data.get("functions", [])
 
         if isinstance(functions_data, list):
-            functions = functions_data
+            functions = [f for f in functions_data if isinstance(f, dict)]
         elif isinstance(functions_data, dict):
             for idx in sorted(functions_data.keys(), key=lambda x: int(x) if str(x).isdigit() else x):
                 func_entry = functions_data[idx]
@@ -637,8 +656,8 @@ class OpusGreenNetCoordinator:
             "deviceId": device_id,
             "friendlyId": friendly_id,
             "functions": functions,
-            "timestamp": telegram_data.get("timestamp"),
-            "telegramInfo": telegram_data.get("telegramInfo", {}),
+            "timestamp": effective_data.get("timestamp") or telegram_data.get("timestamp"),
+            "telegramInfo": effective_data.get("telegramInfo") or telegram_data.get("telegramInfo", {}),
         }
 
         # Find device by device_id (devices are keyed by friendly_id)
@@ -669,6 +688,11 @@ class OpusGreenNetCoordinator:
             )
 
         # Update device state
+        if functions:
+            _LOGGER.debug(
+                "Telegram update for %s (%s): %d functions: %s",
+                friendly_id, device_id, len(functions), functions,
+            )
         device.update_from_telegram(telegram)
 
         # Notify listeners of state update
@@ -715,19 +739,32 @@ class OpusGreenNetCoordinator:
         device_id: str,
         channel: int = 0,
         brightness: int | None = None,
+        is_dimmable: bool = False,
     ) -> None:
         """Turn on a switch or light."""
         if brightness is not None:
             functions = [{"key": "dimValue", "value": str(brightness)}]
+        elif is_dimmable:
+            # Dimmers use dimValue, not switch — per OPUS MQTT spec section 5.3
+            functions = [{"key": "dimValue", "value": "100"}]
         else:
             functions = [{"key": "switch", "value": "on"}]
 
         self._add_channel_if_needed(functions, channel)
         await self.async_send_command(device_id, functions)
 
-    async def async_turn_off(self, device_id: str, channel: int = 0) -> None:
+    async def async_turn_off(
+        self,
+        device_id: str,
+        channel: int = 0,
+        is_dimmable: bool = False,
+    ) -> None:
         """Turn off a switch or light."""
-        functions = [{"key": "switch", "value": "off"}]
+        if is_dimmable:
+            # Dimmers use dimValue 0, not switch off — per OPUS MQTT spec section 5.3
+            functions = [{"key": "dimValue", "value": "0"}]
+        else:
+            functions = [{"key": "switch", "value": "off"}]
         self._add_channel_if_needed(functions, channel)
         await self.async_send_command(device_id, functions)
 
