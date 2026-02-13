@@ -7,15 +7,30 @@ from typing import Any
 from .const import (
     DEFAULT_CHANNEL,
     EEP_MAPPINGS,
+    KEY_ACTUATOR_DEACTIVATED,
+    KEY_ACTUATOR_LOW_BATTERY,
+    KEY_ACTUATOR_NOT_RESPONDING,
     KEY_ANGLE,
     KEY_CHANNEL,
+    KEY_CIRCUIT_IN_USE,
     KEY_DIMMER,
     KEY_ENERGY,
+    KEY_ENERGY_CONSUMPTION,
+    KEY_FEED_TEMPERATURE,
+    KEY_HEATER_MODE,
+    KEY_HUMIDITY,
     KEY_LOCAL_CONTROL,
+    KEY_MISSING_TEMPERATURE,
     KEY_POSITION,
     KEY_POWER,
+    KEY_POWER_STATE,
+    KEY_SUMMER_MODE,
     KEY_SWITCH,
-    STATE_OFF,
+    KEY_TEMPERATURE,
+    KEY_TEMPERATURE_ORIGIN,
+    KEY_TEMPERATURE_SETPOINT,
+    KEY_THERMAL_MODE,
+    KEY_WINDOW_OPEN,
     STATE_ON,
 )
 
@@ -32,6 +47,24 @@ class EnOceanChannel:
     local_control: bool = False
     energy: float | None = None
     power: float | None = None
+    # Climate fields
+    temperature: float | None = None
+    temperature_setpoint: float | None = None
+    heater_mode: str | None = None
+    humidity: float | None = None
+    window_open: bool | None = None
+    summer_mode: bool | None = None
+    feed_temperature: float | None = None
+    thermal_mode: str | None = None
+    energy_consumption: float | None = None
+    power_state: str | None = None
+    temperature_origin: str | None = None
+    # Error/warning states
+    actuator_deactivated: str | None = None
+    actuator_low_battery: str | None = None
+    actuator_not_responding: str | None = None
+    missing_temperature: str | None = None
+    circuit_in_use: str | None = None
 
 
 @dataclass
@@ -47,6 +80,7 @@ class EnOceanDevice:
     last_seen: str = ""
     dbm: int = 0
     channels: dict[int, EnOceanChannel] = field(default_factory=dict)
+    profile: dict[str, Any] | None = None
 
     @property
     def primary_eep(self) -> str | None:
@@ -68,11 +102,17 @@ class EnOceanDevice:
         """Check if this device supports dimming."""
         eep = self.primary_eep
         if eep:
-            # D2-01-02, D2-01-03, D2-01-06, D2-01-07, etc. are dimmers
             return eep in [
-                "D2-01-02", "D2-01-03", "D2-01-06", "D2-01-07",
-                "D2-01-0A", "D2-01-0B", "D2-01-0F", "D2-01-10",
-                "D2-01-12", "A5-38-08"
+                "D2-01-02",
+                "D2-01-03",
+                "D2-01-06",
+                "D2-01-07",
+                "D2-01-0A",
+                "D2-01-0B",
+                "D2-01-0F",
+                "D2-01-10",
+                "D2-01-12",
+                "A5-38-08",
             ]
         return False
 
@@ -91,6 +131,32 @@ class EnOceanDevice:
         return eep in ["D2-05-00", "D2-05-02"]
 
     @property
+    def is_climate(self) -> bool:
+        """Check if this device is a climate/heating device."""
+        eep = self.primary_eep
+        if eep:
+            return eep in ["D1-4B-05", "D1-4B-06", "D1-4B-07"]
+        return False
+
+    @property
+    def heat_area_type(self) -> str | None:
+        """Return the specific heat area type."""
+        eep = self.primary_eep
+        eep_type_map = {
+            "D1-4B-05": "valve",
+            "D1-4B-06": "cositherm",
+            "D1-4B-07": "electro",
+        }
+        return eep_type_map.get(eep)
+
+    @property
+    def setpoint_step(self) -> float:
+        """Return the temperature setpoint step size for this device."""
+        if self.primary_eep == "D1-4B-05":
+            return 0.5
+        return 0.1  # D1-4B-06 and D1-4B-07 both use 0.1
+
+    @property
     def channel_count(self) -> int:
         """Determine the number of channels based on EEP."""
         eep = self.primary_eep
@@ -99,13 +165,24 @@ class EnOceanDevice:
 
         # Multi-channel actuators
         channel_map = {
-            "D2-01-04": 2, "D2-01-05": 2, "D2-01-06": 2, "D2-01-07": 2,
-            "D2-01-08": 4, "D2-01-09": 4, "D2-01-0A": 4, "D2-01-0B": 4,
-            "D2-01-0D": 8, "D2-01-0E": 8, "D2-01-0F": 8, "D2-01-10": 8,
+            "D2-01-04": 2,
+            "D2-01-05": 2,
+            "D2-01-06": 2,
+            "D2-01-07": 2,
+            "D2-01-08": 4,
+            "D2-01-09": 4,
+            "D2-01-0A": 4,
+            "D2-01-0B": 4,
+            "D2-01-0D": 8,
+            "D2-01-0E": 8,
+            "D2-01-0F": 8,
+            "D2-01-10": 8,
         }
         return channel_map.get(eep, 1)
 
-    def get_or_create_channel(self, channel_id: int = DEFAULT_CHANNEL) -> EnOceanChannel:
+    def get_or_create_channel(
+        self, channel_id: int = DEFAULT_CHANNEL
+    ) -> EnOceanChannel:
         """Get or create a channel for this device."""
         if channel_id not in self.channels:
             self.channels[channel_id] = EnOceanChannel(channel_id=channel_id)
@@ -170,6 +247,76 @@ class EnOceanDevice:
                     channel.power = float(value)
                 except (ValueError, TypeError):
                     pass
+
+            # Climate keys
+            elif key == KEY_TEMPERATURE:
+                if value != "notAvailable":
+                    try:
+                        channel.temperature = float(value)
+                    except (ValueError, TypeError):
+                        pass
+
+            elif key == KEY_TEMPERATURE_SETPOINT:
+                if value != "notAvailable":
+                    try:
+                        channel.temperature_setpoint = float(value)
+                    except (ValueError, TypeError):
+                        pass
+
+            elif key == KEY_HEATER_MODE:
+                channel.heater_mode = str(value)
+
+            elif key == KEY_HUMIDITY:
+                if value != "notAvailable":
+                    try:
+                        channel.humidity = float(value)
+                    except (ValueError, TypeError):
+                        pass
+
+            elif key == KEY_WINDOW_OPEN:
+                channel.window_open = value == "true" or value is True
+
+            elif key == KEY_SUMMER_MODE:
+                channel.summer_mode = value == "true" or value is True
+
+            elif key == KEY_FEED_TEMPERATURE:
+                if value != "notAvailable":
+                    try:
+                        channel.feed_temperature = float(value)
+                    except (ValueError, TypeError):
+                        pass
+
+            elif key == KEY_THERMAL_MODE:
+                channel.thermal_mode = str(value)
+
+            elif key == KEY_ENERGY_CONSUMPTION:
+                if value != "notAvailable":
+                    try:
+                        channel.energy_consumption = float(value)
+                    except (ValueError, TypeError):
+                        pass
+
+            elif key == KEY_POWER_STATE:
+                channel.power_state = str(value)
+
+            elif key == KEY_TEMPERATURE_ORIGIN:
+                channel.temperature_origin = str(value)
+
+            # Error/warning states
+            elif key == KEY_ACTUATOR_DEACTIVATED:
+                channel.actuator_deactivated = str(value)
+
+            elif key == KEY_ACTUATOR_LOW_BATTERY:
+                channel.actuator_low_battery = str(value)
+
+            elif key == KEY_ACTUATOR_NOT_RESPONDING:
+                channel.actuator_not_responding = str(value)
+
+            elif key == KEY_MISSING_TEMPERATURE:
+                channel.missing_temperature = str(value)
+
+            elif key == KEY_CIRCUIT_IN_USE:
+                channel.circuit_in_use = str(value)
 
         # Update last seen from telegram
         if "timestamp" in telegram:

@@ -1,0 +1,59 @@
+get_device_configuration:
+  name: Get device configuration
+  description: Retrieve the stored configuration for an EnOcean device via ReCom API.
+  fields:
+    device_id:
+      name: Device ID
+      description: The EURID of the EnOcean device.
+      required: true
+      example: "AABBCCDD"
+      selector:
+        text:
+    config_entry_id:
+      name: Config entry ID
+      description: The config entry ID of the gateway (optional, uses first gateway if omitted).
+      required: false
+      selector:
+        text:
+
+set_device_configuration:
+  name: Set device configuration
+  description: Write configuration to an EnOcean device via ReCom API.
+  fields:
+    device_id:
+      name: Device ID
+      description: The EURID of the EnOcean device.
+      required: true
+      example: "AABBCCDD"
+      selector:
+        text:
+    configuration:
+      name: Configuration
+      description: The configuration object to write to the device.
+      required: true
+      selector:
+        object:
+    config_entry_id:
+      name: Config entry ID
+      description: The config entry ID of the gateway (optional, uses first gateway if omitted).
+      required: false
+      selector:
+        text:
+
+get_device_parameters:
+  name: Get device parameters
+  description: Retrieve DDF parameters for an EnOcean device via ReCom API.
+  fields:
+    device_id:
+      name: Device ID
+      description: The EURID of the EnOcean device.
+      required: true
+      example: "AABBCCDD"
+      selector:
+        text:
+    config_entry_id:
+      name: Config entry ID
+      description: The config entry ID of the gateway (optional, uses first gateway if omitted).
+      required: false
+      selector:
+        text:
