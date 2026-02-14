@@ -69,6 +69,7 @@ class OpusGreenNetCoordinator:
         self.hass = hass
         self.eag_id = eag_id
         self.devices: dict[str, EnOceanDevice] = {}
+        self._device_id_to_key: dict[str, str] = {}  # Reverse lookup: device_id -> device_key
         self._device_data: dict[str, dict[str, Any]] = {}  # Raw device properties
         self._telegram_data: dict[str, dict[str, Any]] = {}  # Raw telegram properties
         self._device_stream_data: dict[str, dict[str, Any]] = {}  # Device stream deltas
@@ -272,14 +273,9 @@ class OpusGreenNetCoordinator:
         stream_data = self._device_stream_data.pop(device_id)
         self._pending_device_streams.pop(device_id, None)
 
-        # Find the device
-        device = None
-        device_key = None
-        for key, dev in self.devices.items():
-            if dev.device_id == device_id:
-                device = dev
-                device_key = key
-                break
+        # O(1) lookup using device_id -> device_key mapping
+        device_key = self._device_id_to_key.get(device_id)
+        device = self.devices.get(device_key) if device_key else None
 
         if device is None:
             # Device not yet discovered - store for later discovery
@@ -520,6 +516,7 @@ class OpusGreenNetCoordinator:
                 self._apply_initial_state(device, data)
 
             self.devices[device_key] = device
+            self._device_id_to_key[device_id] = device_key
 
             _LOGGER.info(
                 "Device %s: %s (%s) - EEPs: %s - Type: %s",
@@ -660,14 +657,9 @@ class OpusGreenNetCoordinator:
             "telegramInfo": effective_data.get("telegramInfo") or telegram_data.get("telegramInfo", {}),
         }
 
-        # Find device by device_id (devices are keyed by friendly_id)
-        device = None
-        device_key = None
-        for key, dev in self.devices.items():
-            if dev.device_id == device_id:
-                device = dev
-                device_key = key
-                break
+        # O(1) lookup using device_id -> device_key mapping
+        device_key = self._device_id_to_key.get(device_id)
+        device = self.devices.get(device_key) if device_key else None
 
         if device is None:
             # Create a basic device entry if we haven't discovered it yet
@@ -677,6 +669,7 @@ class OpusGreenNetCoordinator:
                 friendly_id=friendly_id,
             )
             self.devices[device_key] = device
+            self._device_id_to_key[device_id] = device_key
             _LOGGER.info(
                 "Auto-discovered device from telegram: %s",
                 device_id,
