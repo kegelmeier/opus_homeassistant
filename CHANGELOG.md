@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3] - 2026-02-14
+
+### Fixed
+- **Dimmable light on/off**: Dimmers now use `dimValue: 100` / `dimValue: 0` instead of `switch: on/off`, matching the OPUS MQTT spec (section 5.3). On/off controls in HA now work correctly for dimmable lights.
+- **Faster external state updates**: Fixed `_finalize_telegram` to extract functions from the `from` sub-key of flattened MQTT topics. Previously the handler looked at the top level and found nothing, causing ~10s delays until the next `stream/device` delta arrived.
+
+### Added
+- **Test suite**: 155 pytest tests covering device model, coordinator helpers, MQTT finalization, command building, and config flow validation. Runs in <0.5s.
+- **`reload_entry` developer service**: Re-runs integration setup/teardown without restarting HA. Useful for testing MQTT reconnection and config lifecycle.
+
 ## [0.1.2] - 2025-02-13
 
 ### Fixed
