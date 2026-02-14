@@ -662,7 +662,8 @@ class OpusGreenNetCoordinator:
         device = self.devices.get(device_key) if device_key else None
 
         if device is None:
-            # Create a basic device entry if we haven't discovered it yet
+            # Device not yet discovered - create a basic entry for auto-discovery
+            # from telegram data (for devices that only send telegrams, not stream/device)
             device_key = friendly_id
             device = EnOceanDevice(
                 device_id=device_id,
@@ -679,18 +680,21 @@ class OpusGreenNetCoordinator:
                 f"{SIGNAL_DEVICE_DISCOVERED}_{self.eag_id}",
                 device,
             )
+            # Update initial state from telegram
+            if functions:
+                device.update_from_telegram(telegram)
+                signal = f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}"
+                async_dispatcher_send(self.hass, signal, device)
+            return
 
-        # Update device state
-        if functions:
-            _LOGGER.debug(
-                "Telegram update for %s (%s): %d functions: %s",
-                friendly_id, device_id, len(functions), functions,
-            )
-        device.update_from_telegram(telegram)
-
-        # Notify listeners of state update
-        signal = f"{SIGNAL_DEVICE_STATE_UPDATE}_{self.eag_id}_{device_key}"
-        async_dispatcher_send(self.hass, signal, device)
+        # Device is already known - skip telegram state updates.
+        # stream/device is the authoritative source for state updates on known devices.
+        # Telegrams may arrive with duplicate or stale data, so we ignore them
+        # to avoid duplicate processing and signal dispatching.
+        _LOGGER.debug(
+            "Skipping telegram state update for known device %s (%s) - stream/device is authoritative",
+            friendly_id, device_id
+        )
 
     # ──────────────────────────────────────────────────────────────────────
     # Command sending

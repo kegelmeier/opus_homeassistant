@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.8] - 2026-02-14
+
+### Fixed
+- **Eliminated duplicate stream processing**: Modified `_finalize_telegram` to skip state updates for known devices. The `stream/device` topic is now the authoritative source for state updates, while `stream/telegram` is only used for auto-discovering new devices. This prevents duplicate processing when both topics arrive for the same state change.
+
 ## [0.1.7] - 2026-02-14
 
 ### Fixed
