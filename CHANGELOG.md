@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2026-02-14
+
+### Reverted
+- **Reverted device_id reverse lookup optimization**: Removed the `_device_id_to_key` dictionary and restored O(n) linear scans in `_finalize_device_stream` and `_finalize_telegram`. The optimization introduced in v0.1.7 caused issues with device state updates, so we've reverted to the original implementation while keeping the duplicate stream elimination improvements from v0.1.8.
+
 ## [0.1.8] - 2026-02-14
 
 ### Fixed
