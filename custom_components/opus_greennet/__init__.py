@@ -32,6 +32,7 @@ PLATFORMS_LIST: list[Platform] = [
 SERVICE_GET_DEVICE_CONFIG = "get_device_configuration"
 SERVICE_SET_DEVICE_CONFIG = "set_device_configuration"
 SERVICE_GET_DEVICE_PARAMS = "get_device_parameters"
+SERVICE_RELOAD_ENTRY = "reload_entry"
 ATTR_DEVICE_ID = "device_id"
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
 ATTR_CONFIGURATION = "configuration"
@@ -117,6 +118,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.services.async_remove(DOMAIN, SERVICE_GET_DEVICE_CONFIG)
             hass.services.async_remove(DOMAIN, SERVICE_SET_DEVICE_CONFIG)
             hass.services.async_remove(DOMAIN, SERVICE_GET_DEVICE_PARAMS)
+            hass.services.async_remove(DOMAIN, SERVICE_RELOAD_ENTRY)
 
     return unload_ok
 
@@ -165,6 +167,15 @@ def _register_services(hass: HomeAssistant) -> None:
             _LOGGER.info("Device parameters for %s: %s", device_id, result)
         return result
 
+    async def handle_reload_entry(call: ServiceCall) -> None:
+        """Handle reload_entry service call — re-runs setup/teardown."""
+        config_entry_id = call.data.get(ATTR_CONFIG_ENTRY_ID)
+        if config_entry_id:
+            await hass.config_entries.async_reload(config_entry_id)
+        else:
+            for eid in list(hass.data.get(DOMAIN, {}).keys()):
+                await hass.config_entries.async_reload(eid)
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_GET_DEVICE_CONFIG,
@@ -182,4 +193,12 @@ def _register_services(hass: HomeAssistant) -> None:
         SERVICE_GET_DEVICE_PARAMS,
         handle_get_device_parameters,
         schema=SERVICE_DEVICE_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RELOAD_ENTRY,
+        handle_reload_entry,
+        schema=vol.Schema(
+            {vol.Optional(ATTR_CONFIG_ENTRY_ID): cv.string}
+        ),
     )

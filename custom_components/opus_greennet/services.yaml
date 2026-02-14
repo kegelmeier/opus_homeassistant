@@ -57,3 +57,14 @@ get_device_parameters:
       required: false
       selector:
         text:
+
+reload_entry:
+  name: Reload integration
+  description: Re-run setup/teardown for the integration config entry. Useful for testing MQTT reconnection and config lifecycle. Does NOT reload Python bytecode — code changes still need an HA restart.
+  fields:
+    config_entry_id:
+      name: Config entry ID
+      description: The config entry ID to reload (optional, reloads all entries if omitted).
+      required: false
+      selector:
+        text:
