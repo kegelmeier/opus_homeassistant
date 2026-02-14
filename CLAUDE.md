@@ -23,6 +23,36 @@ Repository: https://github.com/kegelmeier/opus_homeassistant
 - `services.yaml` — HA service definitions (rendered in Developer Tools)
 - `strings.json` + `translations/en.json` — UI strings and entity names
 
+## Branch Strategy (MANDATORY for every change)
+
+ALWAYS create a new branch for each feature or fix. NO direct commits to main.
+
+### Branch Naming Convention
+
+For FEATURES: `feature/v<major>.<minor>.0`
+For FIXES:    `fix/v<major>.<minor>.<patch>`
+
+Examples:
+- New platform (light):     `feature/v0.2.0`
+- Bug fix in v0.1.3:      `fix/v0.1.4`
+- Breaking change:          `feature/v1.0.0`
+
+### Workflow
+
+1. Create branch from main
+2. Make changes
+3. Update version (manifest.json) according to semver rules
+4. Update CHANGELOG.md
+5. Push branch → create PR
+6. Merge to main
+7. Create git tag: `git tag v<version> && git push origin v<version>`
+
+### Version Rules
+
+- **PATCH (0.0.x → 0.0.x+1)**: Bug fixes only
+- **MINOR (0.x.0)**: New features, platforms, device support
+- **MAJOR (x.0.0)**: Breaking changes
+
 ## Release Checklist (MANDATORY for every feature/fix)
 
 Every change that is merged to `main` MUST complete ALL of the following before pushing:
