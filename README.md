@@ -127,6 +127,7 @@ The integration exposes the following services for advanced device management, a
 | `opus_greennet.get_device_configuration` | `device_id` | Retrieve the stored configuration for an EnOcean device via ReCom API |
 | `opus_greennet.set_device_configuration` | `device_id`, `configuration` | Write configuration to an EnOcean device via ReCom API |
 | `opus_greennet.get_device_parameters` | `device_id` | Retrieve DDF parameters for an EnOcean device via ReCom API |
+| `opus_greennet.reload_entry` | _(optional)_ `config_entry_id` | Re-run integration setup/teardown without restarting HA |
 
 The `device_id` is the EURID of the target device (e.g., `01A02F6C`). An optional `config_entry_id` parameter is available if you have multiple gateways.
 
@@ -207,7 +208,22 @@ custom_components/opus_greennet/
 ├── strings.json          # UI strings
 └── translations/
     └── en.json           # English translations
+tests/
+├── conftest.py                  # Shared fixtures
+├── test_enocean_device.py       # Device model tests
+├── test_coordinator_helpers.py  # Pure helper and command tests
+├── test_coordinator_mqtt.py     # MQTT finalization tests
+└── test_config_flow.py          # Config flow validation tests
 ```
+
+### Testing
+
+```bash
+pip install -r requirements_test.txt
+pytest -v
+```
+
+155 tests run in <0.5s, covering device properties, telegram parsing, command building, MQTT finalization, and config flow validation.
 
 ## License
 
