@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-02-14
+
+### Fixed
+- **Reduced debounce from 100ms to 20ms**: Optimized MQTT message debouncing for both `stream/device` and `stream/telegram` handlers. State changes now propagate faster while still debouncing rapid successive messages.
+
 ## [0.1.5] - 2026-02-14
 
 ### Added
