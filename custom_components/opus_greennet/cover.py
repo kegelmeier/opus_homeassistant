@@ -80,6 +80,7 @@ class OpusGreenNetCover(CoverEntity):
     """Representation of an Opus GreenNet cover (blinds/shades)."""
 
     _attr_has_entity_name = True
+    _attr_assumed_state = True
 
     def __init__(
         self,
@@ -170,12 +171,22 @@ class OpusGreenNetCover(CoverEntity):
 
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
+        # Optimistic state update - update immediately before sending MQTT
+        channel = self._device.get_or_create_channel(self._channel_id)
+        channel.position = 100
+        self.async_write_ha_state()
+
         await self._coordinator.async_set_cover_position(
             self._device.device_id, 100, self._channel_id
         )
 
     async def async_close_cover(self, **kwargs: Any) -> None:
         """Close the cover."""
+        # Optimistic state update - update immediately before sending MQTT
+        channel = self._device.get_or_create_channel(self._channel_id)
+        channel.position = 0
+        self.async_write_ha_state()
+
         await self._coordinator.async_set_cover_position(
             self._device.device_id, 0, self._channel_id
         )
@@ -188,6 +199,11 @@ class OpusGreenNetCover(CoverEntity):
         """Move the cover to a specific position."""
         position = kwargs.get(ATTR_POSITION)
         if position is not None:
+            # Optimistic state update - update immediately before sending MQTT
+            channel = self._device.get_or_create_channel(self._channel_id)
+            channel.position = position
+            self.async_write_ha_state()
+
             await self._coordinator.async_set_cover_position(
                 self._device.device_id, position, self._channel_id
             )
@@ -196,6 +212,11 @@ class OpusGreenNetCover(CoverEntity):
         """Set the cover tilt position."""
         tilt = kwargs.get(ATTR_TILT_POSITION)
         if tilt is not None:
+            # Optimistic state update - update immediately before sending MQTT
+            channel = self._device.get_or_create_channel(self._channel_id)
+            channel.angle = tilt
+            self.async_write_ha_state()
+
             await self._coordinator.async_set_cover_tilt(
                 self._device.device_id, tilt, self._channel_id
             )

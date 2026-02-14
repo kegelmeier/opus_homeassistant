@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - 2026-02-14
+
+### Added
+- **Optimistic state updates**: Lights, switches, and covers now update their state immediately when turned on/off or moved, before waiting for MQTT confirmation. Added `_attr_assumed_state = True` to all controllable entities for instant UI feedback.
+
+## [0.1.4] - 2026-02-14
+
+### Fixed
+- **Device ID to friendly ID lookup in telegram handler**: Fixed `_finalize_telegram` to correctly look up devices using `friendly_id` as the key (matching what's stored in `self.devices`) instead of `device_id` directly. Previously, telegrams arriving before device discovery would create duplicate entries with `friendly_id` as key, while discovered devices used the same key — but the lookup code checked `device_id` and missed matches.
+
+### Changed
+- **Reorganized device data storage**: Split raw MQTT data into separate dictionaries (`_device_data`, `_telegram_data`, `_device_stream_data`) to prevent crosstalk between different message sources.
+
 ## [0.1.3] - 2026-02-14
 
 ### Fixed

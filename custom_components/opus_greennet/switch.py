@@ -75,6 +75,7 @@ class OpusGreenNetSwitch(SwitchEntity):
     """Representation of an Opus GreenNet switch."""
 
     _attr_has_entity_name = True
+    _attr_assumed_state = True
 
     def __init__(
         self,
@@ -123,10 +124,20 @@ class OpusGreenNetSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
+        # Optimistic state update - update immediately before sending MQTT
+        channel = self._device.get_or_create_channel(self._channel_id)
+        channel.is_on = True
+        self.async_write_ha_state()
+
         await self._coordinator.async_turn_on(self._device.device_id, self._channel_id)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
+        # Optimistic state update - update immediately before sending MQTT
+        channel = self._device.get_or_create_channel(self._channel_id)
+        channel.is_on = False
+        self.async_write_ha_state()
+
         await self._coordinator.async_turn_off(self._device.device_id, self._channel_id)
 
     async def async_added_to_hass(self) -> None:

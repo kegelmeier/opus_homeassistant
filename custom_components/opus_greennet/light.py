@@ -80,6 +80,7 @@ class OpusGreenNetLight(LightEntity):
     """Representation of an Opus GreenNet light."""
 
     _attr_has_entity_name = True
+    _attr_assumed_state = True
 
     def __init__(
         self,
@@ -149,6 +150,18 @@ class OpusGreenNetLight(LightEntity):
         """Turn the light on."""
         brightness = kwargs.get(ATTR_BRIGHTNESS)
 
+        # Optimistic state update - update immediately before sending MQTT
+        channel = self._device.get_or_create_channel(self._channel_id)
+        if brightness is not None and self._device.is_dimmable:
+            brightness_pct = int(brightness * 100 / 255)
+            channel.brightness = brightness_pct
+            channel.is_on = brightness_pct > 0
+        else:
+            channel.is_on = True
+            if self._device.is_dimmable:
+                channel.brightness = 100
+        self.async_write_ha_state()
+
         if brightness is not None and self._device.is_dimmable:
             # Convert 0-255 to 0-100
             brightness_pct = int(brightness * 100 / 255)
@@ -167,6 +180,13 @@ class OpusGreenNetLight(LightEntity):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the light off."""
+        # Optimistic state update - update immediately before sending MQTT
+        channel = self._device.get_or_create_channel(self._channel_id)
+        channel.is_on = False
+        if self._device.is_dimmable:
+            channel.brightness = 0
+        self.async_write_ha_state()
+
         await self._coordinator.async_turn_off(
             self._device.device_id,
             self._channel_id,
