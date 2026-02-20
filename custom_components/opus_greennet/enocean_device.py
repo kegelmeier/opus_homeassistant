@@ -177,6 +177,11 @@ class EnOceanDevice:
             "D2-01-0E": 8,
             "D2-01-0F": 8,
             "D2-01-10": 8,
+            # Local Control variants: same channel count as their non-LC counterparts
+            # D2-01-11 = 2-ch switch with local control (same as D2-01-04/05)
+            # D2-01-12 = 2-ch dimmer with local control (same as D2-01-06/07)
+            "D2-01-11": 2,
+            "D2-01-12": 2,
         }
         return channel_map.get(eep, 1)
 

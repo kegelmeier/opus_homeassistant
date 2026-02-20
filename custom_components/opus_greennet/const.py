@@ -88,8 +88,8 @@ EEP_MAPPINGS: Final = {
     "D2-01-0E": ("switch", "Electronic Switch Actuator, 8 Channels with Energy"),
     "D2-01-0F": ("light", "Dimmer, 8 Channels"),
     "D2-01-10": ("light", "Dimmer, 8 Channels with Energy"),
-    "D2-01-11": ("switch", "Electronic Switch Actuator with Local Control"),
-    "D2-01-12": ("light", "Dimmer with Local Control"),
+    "D2-01-11": ("switch", "Electronic Switch Actuator, 2 Channels with Local Control"),
+    "D2-01-12": ("light", "Dimmer, 2 Channels with Local Control"),
     # Blinds Control (D2-05-xx)
     "D2-05-00": ("cover", "Blinds Control for Position and Angle"),
     "D2-05-01": ("cover", "Blinds Control for Position"),
