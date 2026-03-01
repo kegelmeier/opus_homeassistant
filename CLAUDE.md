@@ -27,6 +27,8 @@ Repository: https://github.com/kegelmeier/opus_homeassistant
 
 ALWAYS create a new branch for each feature or fix. NO direct commits to main.
 
+> **Note:** For small, low-risk changes (typos, release note updates, CHANGELOG-only edits), direct commits to `main` are permitted.
+
 ### Branch Naming Convention
 
 For FEATURES: `feat/<short-description>`
@@ -39,7 +41,7 @@ Examples:
 
 ### Workflow
 
-1. Create branch from main (`feat/` or `fix/`)
+1. Create branch from main (`feat/` or `fix/`). Direct push to main is OK for minor changes.
 2. Make changes
 3. Run `pytest -v` — all tests must pass before proceeding
 4. Update README.md if the change affects supported devices, features, services, or project structure
