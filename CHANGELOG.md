@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.12] - 2026-03-01
+
+### Fixed
+- **Invert cover position for OPUS Bridge**: OPUS reports 0% = fully open, but Home Assistant expects 0% = fully closed. Position values are now inverted at the HA interface layer. (Closes #14)
+
 ## [0.1.10] - 2026-02-14
 
 ### Reset
