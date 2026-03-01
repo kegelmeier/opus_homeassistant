@@ -29,42 +29,36 @@ ALWAYS create a new branch for each feature or fix. NO direct commits to main.
 
 ### Branch Naming Convention
 
-For FEATURES: `feature/v<major>.<minor>.0`
-For FIXES:    `fix/v<major>.<minor>.<patch>`
+For FEATURES: `feat/<short-description>`
+For FIXES:    `fix/<short-description>`
 
 Examples:
-- New platform (light):     `feature/v0.2.0`
-- Bug fix in v0.1.3:      `fix/v0.1.4`
-- Breaking change:          `feature/v1.0.0`
+- New platform:             `feat/number-platform`
+- Bug fix for covers:       `fix/cover-position-inversion`
+- Breaking change:          `feat/new-discovery-protocol`
 
 ### Workflow
 
-1. Create branch from main
+1. Create branch from main (`feat/` or `fix/`)
 2. Make changes
 3. Run `pytest -v` — all tests must pass before proceeding
-4. Update version in `manifest.json` according to semver rules
-5. Update CHANGELOG.md
-6. Update README.md if the change affects supported devices, features, services, or project structure
-7. Verify version consistency: `manifest.json` version = CHANGELOG heading = branch name suffix
-8. Push branch → create PR (see PR Guidelines below)
-9. Merge to main
-10. Create GitHub Release (required for HACS): `gh release create v<version> --title "v<version>" --notes-file -` with release notes from CHANGELOG
-
-### Version Rules
-
-- **PATCH (0.0.x → 0.0.x+1)**: Bug fixes only
-- **MINOR (0.x.0)**: New features, platforms, device support
-- **MAJOR (x.0.0)**: Breaking changes
+4. Update README.md if the change affects supported devices, features, services, or project structure
+5. Push branch → create PR (see PR Guidelines below)
+6. Merge to main
+7. **Version & release are done separately** (see Versioning & HACS Release below)
 
 ## PR Guidelines (MANDATORY)
 
+**PRs never contain version bumps.** No changes to `manifest.json` version, no CHANGELOG entries. Versioning is done manually as a separate step after merging.
+
 ### PR Title Format
 ```
-v<version> — <Short summary of change>
+feat: <short description>
+fix: <short description>
 ```
 Examples:
-- `v0.1.12 — Fix cover position inversion`
-- `v0.2.0 — Add number platform for dimmer speed`
+- `feat: add number platform for dimmer speed`
+- `fix: cover position inversion`
 
 ### PR Body Structure
 ```markdown
@@ -72,60 +66,44 @@ Examples:
 - Brief description of what changed and why
 
 ## Changes
-- List of specific changes (copy or summarize from CHANGELOG entry)
+- List of specific changes
 
 ## Testing
 - [ ] `pytest -v` passes (all tests)
 - [ ] Manual testing done (if applicable): describe what was tested
-- [ ] Version consistent across manifest.json, CHANGELOG, and branch name
 ```
 
-## Release Checklist (MANDATORY for every feature/fix)
+## PR Checklist (before pushing the branch)
 
-Every change MUST complete ALL of the following before pushing the branch:
+1. **Tests pass** — Run `pytest -v`. All tests must pass. Add tests for new functionality.
+2. **README.md** — Update if the change affects supported devices, features, services, project structure, or test count.
+3. **Translation files** — If new entity types or UI strings are added:
+   - `strings.json` — add entity names under `"entity"` block
+   - `translations/en.json` — mirror the same entries
+4. **services.yaml** — If new HA services are added, add descriptions here
+5. **No version changes** — Do NOT modify `manifest.json` version or CHANGELOG.md in the PR.
 
-1. **Tests pass** — Run `pytest -v`. All tests must pass. If you added new functionality, add tests too.
+## Versioning & HACS Release (manual, after PR is merged)
 
-2. **Version bump** — Update `"version"` in `manifest.json`. Use semver:
-   - Patch (0.0.x → 0.0.x+1): bug fixes only
-   - Minor (0.x.0): new features, new platforms, new device support
-   - Major (x.0.0): breaking changes
+Versioning is done **manually and separately** from PRs. After one or more PRs are merged:
 
-3. **CHANGELOG.md** — Add a new section at the top with:
+### Version Rules
+- **PATCH (0.0.x → 0.0.x+1)**: Bug fixes only
+- **MINOR (0.x.0)**: New features, platforms, device support
+- **MAJOR (x.0.0)**: Breaking changes
+
+### Release Steps
+1. Bump `"version"` in `manifest.json`
+2. Add CHANGELOG.md section at the top with:
    - Version number and date
    - `### Added` / `### Fixed` / `### Changed` / `### Removed` subsections as needed
    - Clear, user-facing descriptions of what changed
-
-4. **README.md** — Update if the change affects:
-   - Supported device types table (new EEPs or platforms)
-   - Features list
-   - Project structure (new files)
-   - Configuration or setup instructions
-   - Services or API
-   - Test count in the Development / Testing section
-
-5. **Translation files** — If new entity types or UI strings are added:
-   - `strings.json` — add entity names under `"entity"` block
-   - `translations/en.json` — mirror the same entries
-
-6. **services.yaml** — If new HA services are added, add descriptions here
-
-7. **Version consistency check** — Before pushing, verify ALL of these match:
-   - `manifest.json` `"version"` field
-   - CHANGELOG.md top section heading `[x.y.z]`
-   - Branch name suffix (e.g., `fix/v0.1.12`)
-   - PR title prefix (e.g., `v0.1.12 — ...`)
-
-## HACS Release (after PR is merged to main)
-
-HACS discovers new versions via **GitHub Releases**, not just git tags.
-
-1. Create a GitHub Release (not just a tag):
+3. Commit version bump + changelog directly to main
+4. Create a GitHub Release (required for HACS):
    ```bash
-   gh release create v<version> --title "v<version>" --notes "<paste CHANGELOG section for this version>"
+   gh release create v<version> --title "v<version>" --notes "<paste CHANGELOG section>"
    ```
-2. Verify the release appears at: `https://github.com/kegelmeier/opus_homeassistant/releases`
-3. HACS will automatically pick up the new release within ~1 hour
+5. Verify at: `https://github.com/kegelmeier/opus_homeassistant/releases`
 
 ## Coding Patterns
 
