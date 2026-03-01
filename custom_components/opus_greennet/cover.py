@@ -134,9 +134,12 @@ class OpusGreenNetCover(CoverEntity):
         """Return current position of cover.
 
         0 is closed, 100 is fully open.
+        OPUS uses inverted scale: 0 = fully open, 100 = fully closed.
         """
         channel = self._device.channels.get(self._channel_id)
-        return channel.position if channel else None
+        if channel is None or channel.position is None:
+            return None
+        return 100 - channel.position
 
     @property
     def current_cover_tilt_position(self) -> int | None:
@@ -172,23 +175,25 @@ class OpusGreenNetCover(CoverEntity):
     async def async_open_cover(self, **kwargs: Any) -> None:
         """Open the cover."""
         # Optimistic state update - update immediately before sending MQTT
-        channel = self._device.get_or_create_channel(self._channel_id)
-        channel.position = 100
-        self.async_write_ha_state()
-
-        await self._coordinator.async_set_cover_position(
-            self._device.device_id, 100, self._channel_id
-        )
-
-    async def async_close_cover(self, **kwargs: Any) -> None:
-        """Close the cover."""
-        # Optimistic state update - update immediately before sending MQTT
+        # OPUS: 0 = fully open
         channel = self._device.get_or_create_channel(self._channel_id)
         channel.position = 0
         self.async_write_ha_state()
 
         await self._coordinator.async_set_cover_position(
             self._device.device_id, 0, self._channel_id
+        )
+
+    async def async_close_cover(self, **kwargs: Any) -> None:
+        """Close the cover."""
+        # Optimistic state update - update immediately before sending MQTT
+        # OPUS: 100 = fully closed
+        channel = self._device.get_or_create_channel(self._channel_id)
+        channel.position = 100
+        self.async_write_ha_state()
+
+        await self._coordinator.async_set_cover_position(
+            self._device.device_id, 100, self._channel_id
         )
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
@@ -199,13 +204,15 @@ class OpusGreenNetCover(CoverEntity):
         """Move the cover to a specific position."""
         position = kwargs.get(ATTR_POSITION)
         if position is not None:
+            # Invert: HA position (0=closed,100=open) → OPUS (0=open,100=closed)
+            opus_position = 100 - position
             # Optimistic state update - update immediately before sending MQTT
             channel = self._device.get_or_create_channel(self._channel_id)
-            channel.position = position
+            channel.position = opus_position
             self.async_write_ha_state()
 
             await self._coordinator.async_set_cover_position(
-                self._device.device_id, position, self._channel_id
+                self._device.device_id, opus_position, self._channel_id
             )
 
     async def async_set_cover_tilt_position(self, **kwargs: Any) -> None:
