@@ -41,11 +41,14 @@ Examples:
 
 1. Create branch from main
 2. Make changes
-3. Update version (manifest.json) according to semver rules
-4. Update CHANGELOG.md
-5. Push branch → create PR
-6. Merge to main
-7. Create git tag: `git tag v<version> && git push origin v<version>`
+3. Run `pytest -v` — all tests must pass before proceeding
+4. Update version in `manifest.json` according to semver rules
+5. Update CHANGELOG.md
+6. Update README.md if the change affects supported devices, features, services, or project structure
+7. Verify version consistency: `manifest.json` version = CHANGELOG heading = branch name suffix
+8. Push branch → create PR (see PR Guidelines below)
+9. Merge to main
+10. Create GitHub Release (required for HACS): `gh release create v<version> --title "v<version>" --notes-file -` with release notes from CHANGELOG
 
 ### Version Rules
 
@@ -53,34 +56,76 @@ Examples:
 - **MINOR (0.x.0)**: New features, platforms, device support
 - **MAJOR (x.0.0)**: Breaking changes
 
+## PR Guidelines (MANDATORY)
+
+### PR Title Format
+```
+v<version> — <Short summary of change>
+```
+Examples:
+- `v0.1.12 — Fix cover position inversion`
+- `v0.2.0 — Add number platform for dimmer speed`
+
+### PR Body Structure
+```markdown
+## Summary
+- Brief description of what changed and why
+
+## Changes
+- List of specific changes (copy or summarize from CHANGELOG entry)
+
+## Testing
+- [ ] `pytest -v` passes (all tests)
+- [ ] Manual testing done (if applicable): describe what was tested
+- [ ] Version consistent across manifest.json, CHANGELOG, and branch name
+```
+
 ## Release Checklist (MANDATORY for every feature/fix)
 
-Every change that is merged to `main` MUST complete ALL of the following before pushing:
+Every change MUST complete ALL of the following before pushing the branch:
 
-1. **Version bump** — Update `"version"` in `manifest.json`. Use semver:
+1. **Tests pass** — Run `pytest -v`. All tests must pass. If you added new functionality, add tests too.
+
+2. **Version bump** — Update `"version"` in `manifest.json`. Use semver:
    - Patch (0.0.x → 0.0.x+1): bug fixes only
    - Minor (0.x.0): new features, new platforms, new device support
    - Major (x.0.0): breaking changes
 
-2. **CHANGELOG.md** — Add a new section at the top with:
+3. **CHANGELOG.md** — Add a new section at the top with:
    - Version number and date
    - `### Added` / `### Fixed` / `### Changed` / `### Removed` subsections as needed
    - Clear, user-facing descriptions of what changed
 
-3. **README.md** — Update if the change affects:
+4. **README.md** — Update if the change affects:
    - Supported device types table (new EEPs or platforms)
    - Features list
    - Project structure (new files)
    - Configuration or setup instructions
    - Services or API
+   - Test count in the Development / Testing section
 
-4. **Translation files** — If new entity types or UI strings are added:
+5. **Translation files** — If new entity types or UI strings are added:
    - `strings.json` — add entity names under `"entity"` block
    - `translations/en.json` — mirror the same entries
 
-5. **Git tag** — After pushing, create a version tag: `git tag v<version> && git push origin v<version>`
-
 6. **services.yaml** — If new HA services are added, add descriptions here
+
+7. **Version consistency check** — Before pushing, verify ALL of these match:
+   - `manifest.json` `"version"` field
+   - CHANGELOG.md top section heading `[x.y.z]`
+   - Branch name suffix (e.g., `fix/v0.1.12`)
+   - PR title prefix (e.g., `v0.1.12 — ...`)
+
+## HACS Release (after PR is merged to main)
+
+HACS discovers new versions via **GitHub Releases**, not just git tags.
+
+1. Create a GitHub Release (not just a tag):
+   ```bash
+   gh release create v<version> --title "v<version>" --notes "<paste CHANGELOG section for this version>"
+   ```
+2. Verify the release appears at: `https://github.com/kegelmeier/opus_homeassistant/releases`
+3. HACS will automatically pick up the new release within ~1 hour
 
 ## Coding Patterns
 
@@ -92,9 +137,10 @@ Every change that is merged to `main` MUST complete ALL of the following before 
 
 ## Testing
 
-- No automated tests currently exist
+- Run `pytest -v` before every push — all tests must pass
 - Manual testing: trigger physical devices, verify HA entity states update
 - Check HA logs at debug level: `custom_components.opus_greennet: debug`
+- When adding new functionality, add corresponding tests in `tests/`
 
 ## Reference
 
